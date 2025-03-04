@@ -28,7 +28,7 @@ let shapesHtml = null;
 let sequence = [];
 for (const row of puzzleHtml.split("\n")) {
   // Parse the board
-  const res = row.match(/imgLocStr\[(\d+)\]\[(\d+)\] = "(swo|cro|gau)"/);
+  const res = row.match(/imgLocStr\[(\d+)\]\[(\d+)\] = "(swo|cro|gau|hel|gob)"/);
   if (res) {
     const [_, col, row, shape] = res;
     if (board[row] === undefined) {
@@ -39,7 +39,7 @@ for (const row of puzzleHtml.split("\n")) {
 
   // Parse the goal symbol
   else if (!goal) {
-    const res2 = row.match(/image.*(swo|cro|gau).*'i_'[^G]*(GOAL)*/);
+    const res2 = row.match(/image.*(swo|cro|gau|hel|gob).*'i_'[^G]*(GOAL)*/);
     if (res2) {
       sequence.push(res2[1]);
       if (res2[2] === "GOAL") {
