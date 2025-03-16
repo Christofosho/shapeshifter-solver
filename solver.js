@@ -8,7 +8,18 @@ const board = puzzle.board;
 
 const goal = puzzle.goal;
 
-const shapes = puzzle.shapes.map((shape, index) => ({ shape, index }));
+const shapes = puzzle.shapes.map((shape, index) => ({
+  shape,
+  index,
+  count: shape.reduce((total, row) => {
+    for (const cell of row) {
+      if (cell === 1) {
+        ++total;
+      }
+    }
+    return total;
+  }, 0),
+}));
 const shapeValues = [];
 for (const i in shapes) {
   let total = 0;
@@ -21,7 +32,7 @@ for (const i in shapes) {
 }
 
 // Inefficient sort because other things will take longer.
-const sortedShapes = [...shapes].sort((a, b) => {
+const sortedShapes = shapes.toSorted((a, b) => {
   return shapeValues[b.index] - shapeValues[a.index];
 });
 
@@ -41,6 +52,18 @@ for (const shape of shapes) {
   totalComplexity *= currentComplexity;
 }
 console.log(`Total complexity without optimizations: ${totalComplexity}`);
+
+function tilesUnsolved(board) {
+  let unsolved = 0;
+  for (const row of board) {
+    for (const cell of row) {
+      if (cell !== goal) {
+        ++unsolved;
+      }
+    }
+  }
+  return unsolved;
+}
 
 function applyShapeToBoard(shape, x, y) {
   for (let i = 0; i < shape.length; ++i) {
@@ -79,38 +102,66 @@ console.log(`${new Date().toISOString()} Applying shapes...`);
 
 const cache = {};
 
+let shapeTiles = sortedShapes.reduce((total, shape) => {
+  for (const row of shape.shape) {
+    for (const cell of row) {
+      if (cell === 1) {
+        ++total;
+      }
+    }
+  }
+  return total;
+}, 0);
+
 const stack = [];
 const dive = (shapeIndex, boardX, boardY) => {
+  // Basic heuristic check: if there are more tiles needing flipped than shape tiles remaining, skip.
+  const unsolvedBoardTiles = tilesUnsolved(board);
+
+  if (unsolvedBoardTiles > shapeTiles) {
+    // console.log("Skipping", shapeIndex, "at", boardX, boardY);
+    // console.log(unsolved, "unsolved, and only", remaining, "remaining");
+    return false;
+  }
+
   applyShapeToBoard(sortedShapes[shapeIndex].shape, boardX, boardY);
   stack.push({ index: sortedShapes[shapeIndex].index, pos: [boardX, boardY] });
+  shapeTiles -= sortedShapes[shapeIndex].count;
 
   if (shapeIndex < shapes.length - 1) {
     const nextIndex = shapeIndex + 1;
     const nextShape = sortedShapes[nextIndex].shape;
     for (let y = 0; y <= board.length - nextShape.length; y++) {
       for (let x = 0; x <= board[0].length - nextShape[0].length; x++) {
-        dive(nextIndex, x, y);
+        const undo = dive(nextIndex, x, y);
         if (nextIndex + 1 === shapes.length) {
           if (isSolution(board)) {
             stack.sort((a, b) => a.index - b.index);
             stack.forEach(({ index, pos }) => {
               console.log(pos, "with index", index, "for shape", shapes[index].shape);
             });
+            console.log(`${new Date().toISOString()} Solution found!`);
             throw "done";
           }
         }
-        removeShapeFromBoard(nextShape, x, y);
-        stack.pop();
+        if (undo) {
+          removeShapeFromBoard(nextShape, x, y);
+          stack.pop();
+          shapeTiles += sortedShapes[nextIndex].count;
+        }
       }
     }
   }
+  return true;
 }
 
 for (let y = 0; y <= board.length - sortedShapes[0].shape.length; y++) {
   for (let x = 0; x <= board[0].length - sortedShapes[0].shape[0].length; x++) {
-    dive(0, x, y);
-    removeShapeFromBoard(sortedShapes[0].shape[0], x, y);
-    stack.pop();
+    const undo = dive(0, x, y);
+    if (undo) {
+      removeShapeFromBoard(sortedShapes[0].shape[0], x, y);
+      stack.pop();
+    }
   }
 }
 
